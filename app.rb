@@ -18,6 +18,8 @@ class FetchList
   # Then save them into db with a key-value format.
   
   # To-do: Re-spride function
+  # Select all data then combine a hash
+  # which have the same format like @games_data
   
   def initialize(console)
     # console arr can be "ps4" or "ps3" or any console on the duowan site.
