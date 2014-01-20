@@ -5,56 +5,67 @@ require 'mongoid'
 ENV['MONGOID_ENV'] = 'development'
 Mongoid.load!(File.expand_path('../mongoid.yml', __FILE__))
 
-class Game
+class CrawlPool
+  # Drop before init, it's just a cathe pool.
   include Mongoid::Document
   field :title, type: String
   field :link, type: String
-  field :status, type: Boolean, default: 0
+  #index({ title: 1 }, { unique: true, drop_dups: true })
+  # The motherfuck unique didn't work, shit. I googled 5 hours and found nothing.
+  # If you can figure out, plz let me know.
+  # email: jojo.hsuu@gmail.com
 end
 
-class FetchList
-  # This class fetch each title & link of
+class CrawlStatus
+  # Storge the info which game was been crawl.
+  include Mongoid::Document
+  field :title, type: String
+end
+
+class GetCrawlList
+  # This class crawl each title & link of
   # the whole available games on the duowan site.
   # Then save them into db with a key-value format.
-  
-  # To-do: Re-spride function
-  # Select all data then combine a hash
-  # which have the same format like @games_data
+  # (But I can't figure out how to save the fucking title as a unique index)
   
   def initialize(console)
-    # console arr can be "ps4" or "ps3" or any console on the duowan site.
+    # Console array can be "ps4" or "ps3" or any console on the duowan site.
     @console = console
-    @fetch_list = []
+    @crawl_list = []
     @games_data = []
   end
   
   def get_final_page
-    ps3_source_url = Nokogiri::HTML(open('http://tvgdb.duowan.com/' + @console))
-    ps3_page_size_url = ps3_source_url.css('.mod-page-bd a.last')
-    ps3_page_size_url = ps3_page_size_url[0]['href']
+    source_url = Nokogiri::HTML(open('http://tvgdb.duowan.com/' + @console))
+    final_page_url = source_url.css('.mod-page-bd a.last')
+    final_page_url = final_page_url[0]['href']
 
-    last_page = ps3_page_size_url =~ /page=/
-    return (ps3_page_size_url[(last_page + 5)..-1].to_i + 1)
+    final_page = final_page_url =~ /page=/
+    return (final_page_url[(final_page + 5)..-1].to_i + 1)
+    # Draw out the final page number.
   end
   
   def get_all_page
+    # Get every page need to be scan.
     (1...get_final_page).each do |num|
-      @fetch_list.push("http://tvgdb.duowan.com/" + @console + "?page=" + num.to_s)
+      @crawl_list.push("http://tvgdb.duowan.com/" + @console + "?page=" + num.to_s)
     end
   end
   
-  def get_fetch_list
+  def get_crawl_list
+    # According to the all page list, crawl every title and href.
     games_title = []
     games_link = []
     
     get_all_page
     
-    @fetch_list.each do |link|
+    @crawl_list.each do |link|
       page = Nokogiri::HTML(open(link))
       game_titles_perpage = page.css('h4 a')
       game_links_perpage = page.css('h4 a')
   
       game_titles_perpage.each do |game_title_perpage|
+        # Throw the version away.
         result = game_title_perpage.text
         result_arr = result.split(' ')
         version = result_arr[-1]
@@ -68,19 +79,20 @@ class FetchList
     end
     
     games = Hash[games_title.zip(games_link)]
-    # zip() function can push 2 array dick into 1 hash hole. Amazing!
+    # Combine two array into one hash, then insert into db with one write.
     games.each do |t, h|
       @games_data.push({title: t, link: h})
     end
   end
   
   def get_games_data
-    get_fetch_list
+    get_crawl_list
     return @games_data
   end
   
 end
 
-fetchlist = FetchList.new("ps4")
-raw_fetch_list = fetchlist.get_games_data
-Game.create(raw_fetch_list)
+new_crawl_list = GetCrawlList.new("ps4")
+raw_data = new_crawl_list.get_games_data
+CrawlPool.collection.drop
+CrawlPool.create(raw_data)
