@@ -1,11 +1,16 @@
 require 'nokogiri'
 require 'open-uri'
 require 'mongoid'
+require 'ruby-progressbar'
 
 ENV['MONGOID_ENV'] = 'development'
 Mongoid.load!(File.expand_path('../mongoid.yml', __FILE__))
 
-class CrawlPool
+
+
+# Define some db modul.
+
+class PS3CrawlPool
   # Drop before init, it's just a cathe pool.
   include Mongoid::Document
   field :title, type: String
@@ -16,13 +21,24 @@ class CrawlPool
   # email: jojo.hsuu@gmail.com
 end
 
+class PS4CrawlPool
+  # Drop before init, it's just a cathe pool.
+  include Mongoid::Document
+  field :title, type: String
+  field :link, type: String
+end
+
 class CrawlStatus
   # Storge the info which game was been crawl.
   include Mongoid::Document
   field :title, type: String
 end
 
-class GetCrawlList
+
+
+# Real show begin here.
+
+class Wolverine
   # This class crawl each title & link of
   # the whole available games on the duowan site.
   # Then save them into db with a key-value format.
@@ -30,9 +46,10 @@ class GetCrawlList
   
   def initialize(console)
     # Console array can be "ps4" or "ps3" or any console on the duowan site.
-    @console = console
+    @console = console.upcase
     @crawl_list = []
     @games_data = []
+    @games_amount = 0
   end
   
   def get_final_page
@@ -52,12 +69,32 @@ class GetCrawlList
     end
   end
   
+  def get_games_amount
+    # Get amount of games need to be crawl, this function just for progress.
+    # Need to be rewrite. Because of the duplication crawl.
+    get_all_page
+    
+    puts "Crawlprogress Calculating..."
+    
+    @crawl_list.each do |each_page|
+      page = Nokogiri::HTML(open(each_page))
+      game_titles_perpage = page.css('h4 a')
+      
+      game_titles_perpage.each do |game_title_perpage|
+        @games_amount += 1
+      end
+    end
+  end
+  
   def get_crawl_list
     # According to the all page list, crawl every title and href.
+    # Create a progressbar show the crawl progress.
     games_title = []
     games_link = []
     
-    get_all_page
+    get_games_amount
+    
+    crawlprogress = ProgressBar.create(title: "CrawlProgress", total: @games_amount)
     
     @crawl_list.each do |link|
       page = Nokogiri::HTML(open(link))
@@ -71,6 +108,8 @@ class GetCrawlList
         version = result_arr[-1]
         raw_title = result.delete(version).rstrip
         games_title.push(raw_title)
+        
+        crawlprogress.increment
       end
   
       game_links_perpage.each do |game_link_perpage|
@@ -85,14 +124,24 @@ class GetCrawlList
     end
   end
   
-  def get_games_data
+  def crawl_it
     get_crawl_list
-    return @games_data
+    
+    if (@console == "PS4")
+      PS4CrawlPool.collection.drop
+      PS4CrawlPool.create(@games_data)
+    elsif (@console == "PS3")
+      PS3CrawlPool.collection.drop
+      PS3CrawlPool.create(@games_data)
+    end
+    puts "Wolverine: All crawl work was been done, I\'m bigger and better."
   end
   
 end
 
-new_crawl_list = GetCrawlList.new("ps4")
-raw_data = new_crawl_list.get_games_data
-CrawlPool.collection.drop
-CrawlPool.create(raw_data)
+
+
+# Let's crawl it, wolverine.
+
+new_crawl_list = Wolverine.new("ps4")
+new_crawl_list.crawl_it
