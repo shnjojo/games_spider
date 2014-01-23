@@ -10,53 +10,134 @@ Mongoid.load!(File.expand_path('../mongoid.yml', __FILE__))
 
 # Define some db modul.
 
-class CrawlStatus
+class PS3CrawlPool
+  # Drop before init, it's just a cathe pool.
+  include Mongoid::Document
+  field :title, type: String
+  field :link, type: String
+  #index({ title: 1 }, { unique: true, drop_dups: true })
+  # The motherfuck unique didn't work, shit. I googled 5 hours and found nothing.
+  # If you can figure out, plz let me know.
+  # email: jojo.hsuu@gmail.com
+end
+
+class PS4CrawlPool
+  # Drop before init, it's just a cathe pool.
+  include Mongoid::Document
+  field :title, type: String
+  field :link, type: String
+end
+
+class PS3CrawlStatus
   # Storge the info which game was been crawl.
   include Mongoid::Document
   field :title, type: String
+end
+
+class PS4CrawlStatus
+  # Storge the info which game was been crawl.
+  include Mongoid::Document
+  field :title, type: String
+end
+
+class GameData
+  include Mongoid::Document
+  field :console, type: String
+  # Console table
+  # 1  => PS3
+  # 2  => PS4
+  # 3  => XBONE
+  # 4  => XB360
+  field :title_cn, type: String
+  field :title_en, type: String
+  field :title_jp, type: String
+  field :cover, type: String
+  field :dev_co, type: String
+  field :laugh_co, type: String
+  field :genre, type: String
+  # Genre table
+  # 1  => 射击类
+  # 2  => 动作类
+  # 3  => 格斗类
+  # 4  => 体育类
+  # 5  => 竞速类
+  # 6  => 文字类
+  # 7  => 冒险类
+  # 8  => 模拟类
+  # 9  => 音乐类
+  # 10 => 休闲益智类
+  # 11 => 角色扮演类
+  # 12 => 策略类
+  # 13 => 模拟类
+  # 14 => 其他类
+  # 15 => 即时战略类
+  # 16 => 卡片类
+  field :desc, type: String
+  field :gamespot_point, type: String
+  field :fami_point, type: String
 end
 
 
 
 # Real show begin here.
 
-game_url = Nokogiri::HTML(open('http://tvgdb.duowan.com/ps4/18025/3.html'))
-game_img = game_url.css('#main dt span img')[0]['src']
-game_title_en = game_url.css('#main dd ul li b')[0].text
-game_title_jp = game_url.css('#main dd ul li b')[1].text
-game_dev_co = game_url.css('#main dd ul li b')[3].text
-game_laugh_co = game_url.css('#main dd ul li b')[4].text
-game_genre = game_url.css('#main dd ul li b')[7].text
-game_desc = game_url.css('#main dd .game-text p').text.delete!("\n").delete!("\t").rstrip
-gamespot_point = nil
-fami_point = nil
 
-if game_url.css('#main .extra span')
-  if (game_url.css('#main .extra span')[0].text == "FAMI评分")
-    fami_point = game_url.css('#main .extra strong a')[0].text
-  elsif (game_url.css('#main .extra span')[0].text == "GAMESPOT评分")
-    gamespot_point = game_url.css('#main .extra strong a')[0].text
-  end
-  
-  if game_url.css('#main .extra span')[1]
-    gamespot_point = game_url.css('#main .extra strong a')[1].text
+def crawl_it(console)
+  game_save = []
+  console = console.upcase
+  if console == "PS3"
+    PS3CrawlPool.all.each do |item|
+      item.link
+      game = crawl_each_game(item.link)
+      game_save.push(game)
+    end
+    GameData.create(game_save)
+  elsif console == "PS4"
+    PS4CrawlPool.all.each do |item|
+      item.link
+      game = crawl_each_game(item.link)
+      game_save.push(game)
+      GameData.create(game_save)
+    end
+    GameData.create(game_save)
   end
 end
 
+def crawl_each_game(link)
+  game_url = Nokogiri::HTML(open(link))
 
+  game_data = {}
+  game_data["cover"] = game_url.css('#main dt span img')[0]['src']
+  game_data["title_en"] = game_url.css('#main dd ul li b')[0].text
+  game_data["title_jp"] = game_url.css('#main dd ul li b')[1].text
+  game_data["dev_co"] = game_url.css('#main dd ul li b')[3].text
+  game_data["laugh_co"] = game_url.css('#main dd ul li b')[4].text
+  game_data["genre"] = game_url.css('#main dd ul li b')[7].text
+  game_data["desc"] = game_url.css('#main dd .game-text p').text.delete!("\n").delete!("\t").delete!("\r").rstrip
+  game_data["gamespot_point"] = nil
+  game_data["fami_point"] = nil
 
-puts "GAME_IMG: #{game_img}"
-puts "GAME_TITLE_EN: #{game_title_en}"
-puts "GAME_TITLE_JP: #{game_title_jp}"
-puts "GAME_DEV_CO: #{game_dev_co}"
-puts "GAME_LAUGH_CO: #{game_laugh_co}"
-puts "GAME_DESC: #{game_desc}"
-puts "GAME_GENRE: #{game_genre}"
-puts "GAME_GAMESPOT_POINT: #{gamespot_point}" if gamespot_point
-puts "GAME_FAMI_POINT: #{fami_point}" if fami_point
+  # Get Gamespot and Fami point if exist
+  if game_url.at_css('#main .extra span')
+    if (game_url.css('#main .extra span')[0].text == "FAMI评分")
+      game_data["fami_point"] = game_url.css('#main .extra strong a')[0].text
+    elsif (game_url.css('#main .extra span')[0].text == "GAMESPOT评分")
+      game_data["gamespot_point"] = game_url.css('#main .extra strong a')[0].text
+    end
+  
+    if game_url.css('#main .extra span')[1]
+      game_data["gamespot_point"] = game_url.css('#main .extra strong a')[1].text
+    end
+  end
+  
+  return game_data
+  
+end
 
+crawl_it("PS4")
 
 # Let's crawl it, wolverine.
 
 #new_crawl_list = Wolverine.new("ps4")
 #new_crawl_list.crawl_it
+
