@@ -28,12 +28,6 @@ class PS4CrawlPool
   field :link, type: String
 end
 
-class CrawlStatus
-  # Storge the info which game was been crawl.
-  include Mongoid::Document
-  field :title, type: String
-end
-
 
 
 # Real show begin here.
