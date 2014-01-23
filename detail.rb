@@ -6,7 +6,9 @@ require 'mongoid'
 ENV['MONGOID_ENV'] = 'development'
 Mongoid.load!(File.expand_path('../mongoid.yml', __FILE__))
 
-
+# To-do:
+# Data exist logic
+# Some db field insert not within array-hash format
 
 # Define some db modul.
 
@@ -97,7 +99,6 @@ def crawl_it(console)
       item.link
       game = crawl_each_game(item.link)
       game_save.push(game)
-      GameData.create(game_save)
     end
     GameData.create(game_save)
   end
