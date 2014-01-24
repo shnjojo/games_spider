@@ -11,21 +11,19 @@ Mongoid.load!(File.expand_path('../mongoid.yml', __FILE__))
 # Define some db modul.
 
 class PS3CrawlPool
-  # Drop before init, it's just a cathe pool.
   include Mongoid::Document
   field :title, type: String
   field :link, type: String
-  #index({ title: 1 }, { unique: true, drop_dups: true })
-  # The motherfuck unique didn't work, shit. I googled 5 hours and found nothing.
-  # If you can figure out, plz let me know.
-  # email: jojo.hsuu@gmail.com
+  field :crawl_status, type: Boolean, default: 0
+  validates :title, :uniqueness => true
 end
 
 class PS4CrawlPool
-  # Drop before init, it's just a cathe pool.
   include Mongoid::Document
   field :title, type: String
   field :link, type: String
+  field :crawl_status, type: Boolean, default: 0
+  validates :title, :uniqueness => true
 end
 
 
@@ -35,8 +33,6 @@ end
 class Wolverine
   # This class crawl each title & link of
   # the whole available games on the duowan site.
-  # Then save them into db with a key-value format.
-  # (But I can't figure out how to save the fucking title as a unique index)
   
   def initialize(console)
     # Console array can be "ps4" or "ps3" or any console on the duowan site.
@@ -58,25 +54,11 @@ class Wolverine
   
   def get_all_page
     # Get every page need to be scan.
-    (1...get_final_page).each do |num|
+    final_page = get_final_page
+    @games_amount = final_page * 5
+    
+    (1...final_page).each do |num|
       @crawl_list.push("http://tvgdb.duowan.com/" + @console + "?page=" + num.to_s)
-    end
-  end
-  
-  def get_games_amount
-    # Get amount of games need to be crawl, this function just for progress.
-    # Need to be rewrite. Because of the duplication crawl.
-    get_all_page
-    
-    puts "Crawlprogress Calculating..."
-    
-    @crawl_list.each do |each_page|
-      page = Nokogiri::HTML(open(each_page))
-      game_titles_perpage = page.css('h4 a')
-      
-      game_titles_perpage.each do |game_title_perpage|
-        @games_amount += 1
-      end
     end
   end
   
@@ -86,7 +68,7 @@ class Wolverine
     games_title = []
     games_link = []
     
-    get_games_amount
+    get_all_page
     
     crawlprogress = ProgressBar.create(title: "CrawlProgress", total: @games_amount)
     
@@ -122,10 +104,8 @@ class Wolverine
     get_crawl_list
     
     if (@console == "PS4")
-      PS4CrawlPool.collection.drop
       PS4CrawlPool.create(@games_data)
     elsif (@console == "PS3")
-      PS3CrawlPool.collection.drop
       PS3CrawlPool.create(@games_data)
     end
     puts "Wolverine: All crawl work was been done, I\'m bigger and better."

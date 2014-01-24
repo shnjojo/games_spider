@@ -13,33 +13,19 @@ Mongoid.load!(File.expand_path('../mongoid.yml', __FILE__))
 # Define some db modul.
 
 class PS3CrawlPool
-  # Drop before init, it's just a cathe pool.
   include Mongoid::Document
   field :title, type: String
   field :link, type: String
-  #index({ title: 1 }, { unique: true, drop_dups: true })
-  # The motherfuck unique didn't work, shit. I googled 5 hours and found nothing.
-  # If you can figure out, plz let me know.
-  # email: jojo.hsuu@gmail.com
+  field :crawl_status, type: Boolean, default: 0
+  validates :title, :uniqueness => true
 end
 
 class PS4CrawlPool
-  # Drop before init, it's just a cathe pool.
   include Mongoid::Document
   field :title, type: String
   field :link, type: String
-end
-
-class PS3CrawlStatus
-  # Storge the info which game was been crawl.
-  include Mongoid::Document
-  field :title, type: String
-end
-
-class PS4CrawlStatus
-  # Storge the info which game was been crawl.
-  include Mongoid::Document
-  field :title, type: String
+  field :crawl_status, type: Boolean, default: 0
+  validates :title, :uniqueness => true
 end
 
 class GameData
