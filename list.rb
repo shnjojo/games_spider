@@ -26,7 +26,21 @@ class PS4CrawlPool
   validates :title, :uniqueness => true
 end
 
+class XBOX360CrawlPool
+  include Mongoid::Document
+  field :title, type: String
+  field :link, type: String
+  field :crawl_status, type: Boolean, default: 0
+  validates :title, :uniqueness => true
+end
 
+class XBOXONECrawlPool
+  include Mongoid::Document
+  field :title, type: String
+  field :link, type: String
+  field :crawl_status, type: Boolean, default: 0
+  validates :title, :uniqueness => true
+end
 
 # Real show begin here.
 
@@ -36,7 +50,7 @@ class Wolverine
   
   def initialize(console)
     # Console array can be "ps4" or "ps3" or any console on the duowan site.
-    @console = console.upcase
+    @console = console
     @crawl_list = []
     @games_data = []
     @games_amount = 0
@@ -107,6 +121,10 @@ class Wolverine
       PS4CrawlPool.create(@games_data)
     elsif (@console == "PS3")
       PS3CrawlPool.create(@games_data)
+    elsif (@console == "XBOX360")
+      XBOX360CrawlPool.create(@games_data)
+    elsif (@console == "XBOXONE")
+      XBOXONECrawlPool.create(@games_data)
     end
     puts "Wolverine: All crawl work was been done, I\'m bigger and better."
   end
@@ -117,5 +135,13 @@ end
 
 # Let's crawl it, wolverine.
 
-new_crawl_list = Wolverine.new("ps4")
+puts "Which console do u like to crawl?(PS3/PS4/XBOX360/XBOXONE)"
+console_input = gets.chomp.rstrip.upcase
+
+while (console_input != "PS3") && (console_input != "PS4") && (console_input != "XBOX360") && (console_input != "XBOXONE") do
+  puts "Wrong console, Only support PS3/PS4/XBOX360/XBOXONE."
+  console_input = gets.chomp.rstrip.upcase
+end
+
+new_crawl_list = Wolverine.new(console_input)
 new_crawl_list.crawl_it

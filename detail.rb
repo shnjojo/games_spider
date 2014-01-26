@@ -1,14 +1,12 @@
 require 'nokogiri'
 require 'open-uri'
 require 'mongoid'
-#require 'ruby-progressbar'
+require 'ruby-progressbar'
 
 ENV['MONGOID_ENV'] = 'development'
 Mongoid.load!(File.expand_path('../mongoid.yml', __FILE__))
 
-# To-do:
-# Data exist logic
-# Some db field insert not within array-hash format
+
 
 # Define some db modul.
 
@@ -28,14 +26,25 @@ class PS4CrawlPool
   validates :title, :uniqueness => true
 end
 
+class XBOX360CrawlPool
+  include Mongoid::Document
+  field :title, type: String
+  field :link, type: String
+  field :crawl_status, type: Boolean, default: 0
+  validates :title, :uniqueness => true
+end
+
+class XBOXONECrawlPool
+  include Mongoid::Document
+  field :title, type: String
+  field :link, type: String
+  field :crawl_status, type: Boolean, default: 0
+  validates :title, :uniqueness => true
+end
+
 class GameData
   include Mongoid::Document
   field :console, type: String
-  # Console table
-  # 1  => PS3
-  # 2  => PS4
-  # 3  => XBONE
-  # 4  => XB360
   field :title_cn, type: String
   field :title_en, type: String
   field :title_jp, type: String
@@ -43,23 +52,6 @@ class GameData
   field :dev_co, type: String
   field :laugh_co, type: String
   field :genre, type: String
-  # Genre table
-  # 1  => 射击类
-  # 2  => 动作类
-  # 3  => 格斗类
-  # 4  => 体育类
-  # 5  => 竞速类
-  # 6  => 文字类
-  # 7  => 冒险类
-  # 8  => 模拟类
-  # 9  => 音乐类
-  # 10 => 休闲益智类
-  # 11 => 角色扮演类
-  # 12 => 策略类
-  # 13 => 模拟类
-  # 14 => 其他类
-  # 15 => 即时战略类
-  # 16 => 卡片类
   field :desc, type: String
   field :gamespot_point, type: String
   field :fami_point, type: String
@@ -73,29 +65,52 @@ end
 def crawl_it(console)
   game_save = []
   console = console.upcase
+  
   if console == "PS3"
-    PS3CrawlPool.all.each do |item|
-      item.link
-      game = crawl_each_game(item.link)
-      game_save.push(game)
-    end
-    GameData.create(game_save)
+    db = PS3CrawlPool
+    all_list = PS3CrawlPool.where(crawl_status: false)
   elsif console == "PS4"
-    PS4CrawlPool.all.each do |item|
-      item.link
-      game = crawl_each_game(item.link)
-      game_save.push(game)
-    end
-    GameData.create(game_save)
+    db = PS4CrawlPool
+    all_list = PS4CrawlPool.where(crawl_status: false)
+  elsif console == "XBOX360"
+    db = XBOX360CrawlPool
+    all_list = XBOX360CrawlPool.where(crawl_status: false)
+  elsif console == "XBOXONE"
+    db = XBOXONECrawlPool
+    all_list = XBOXONECrawlPool.where(crawl_status: false)
   end
+  
+  count = all_list.count
+  crawlprogress = ProgressBar.create(title: "CrawlProgress", total: count)
+  # Init the progress count.
+
+  all_list.each do |item|
+    item.link
+    game = crawl_each_game(item.link, item.title, console)
+    game_save.push(game)
+    db.where(title: item.title).update(crawl_status: true)
+    crawlprogress.increment
+  end
+  
+  GameData.create(game_save)
+  puts "All works has been done, Master."
 end
 
-def crawl_each_game(link)
+def crawl_each_game(link, title, console)
   game_url = Nokogiri::HTML(open(link))
   game_data = {}
   
+  game_data["title_cn"] = title
+  game_data["console"] = console
   game_data["cover"] = game_url.css('#main dt span img')[0]['src']
-  game_data["desc"] = game_url.css('#main dd .game-text p').text.delete!("\n").delete!("\t").delete!("\r").rstrip
+  
+  game_data["desc"] = nil
+  game_desc = game_url.css('#main dd .game-text p')
+
+  unless game_desc.nil?
+    game_data["desc"] = game_desc.text.delete("\n").delete("\t").delete("\r").rstrip
+  end
+  
   game_data["gamespot_point"] = nil
   game_data["title_jp"] = nil
   game_data["fami_point"] = nil
@@ -144,4 +159,16 @@ def crawl_each_game(link)
   
 end
 
-crawl_it("PS4")
+
+
+# Let's crawl it.
+
+puts "Which console do u like to crawl?(PS3/PS4/XBOX360/XBOXONE)"
+console_input = gets.chomp.rstrip.upcase
+
+while (console_input != "PS3") && (console_input != "PS4") && (console_input != "XBOX360") && (console_input != "XBOXONE") do
+  puts "Wrong console, Only support PS3/PS4/XBOX360/XBOXONE."
+  console_input = gets.chomp.rstrip.upcase
+end
+
+crawl_it(console_input)
