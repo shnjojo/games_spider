@@ -92,17 +92,40 @@ end
 
 def crawl_each_game(link)
   game_url = Nokogiri::HTML(open(link))
-
   game_data = {}
+  
   game_data["cover"] = game_url.css('#main dt span img')[0]['src']
-  game_data["title_en"] = game_url.css('#main dd ul li b')[0].text
-  game_data["title_jp"] = game_url.css('#main dd ul li b')[1].text
-  game_data["dev_co"] = game_url.css('#main dd ul li b')[3].text
-  game_data["laugh_co"] = game_url.css('#main dd ul li b')[4].text
-  game_data["genre"] = game_url.css('#main dd ul li b')[7].text
   game_data["desc"] = game_url.css('#main dd .game-text p').text.delete!("\n").delete!("\t").delete!("\r").rstrip
   game_data["gamespot_point"] = nil
+  game_data["title_jp"] = nil
   game_data["fami_point"] = nil
+  
+  for i in 1..15
+  # Check each title then suit the value in hash.
+    unless game_url.css('#main dd ul li')[i-1].nil?
+      
+      meta = game_url.css('#main dd ul li')[i-1].text
+      meta_title = meta.split("：").first
+      
+      case meta_title
+      when "英文名称"
+        game_data["title_en"] = meta.split("：").last
+      when "游戏原名"
+        game_data["title_jp"] = meta.split("：").last
+      when "开发厂商"
+        game_data["dev_co"] = meta.split("：").last
+      when "发行厂商"
+        game_data["laugh_co"] = meta.split("：").last
+      when "游戏类型"
+        game_data["genre"] = meta.split("：").last
+      else
+        next
+      end
+
+    else
+      break
+    end
+  end
 
   # Get Gamespot and Fami point if exist
   if game_url.at_css('#main .extra span')
@@ -122,9 +145,3 @@ def crawl_each_game(link)
 end
 
 crawl_it("PS4")
-
-# Let's crawl it, wolverine.
-
-#new_crawl_list = Wolverine.new("ps4")
-#new_crawl_list.crawl_it
-
