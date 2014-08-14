@@ -1,5 +1,6 @@
 require 'open-uri'
 require 'nokogiri'
+require 'digest'
 
 seeder_url = Nokogiri::HTML(open('http://tvgdb.duowan.com/ps4'))
 
